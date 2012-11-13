@@ -29,7 +29,6 @@ class CatchoomImageUtil {
 	 * @return The image {@link File} processed.
 	 */
 	static File processPicture(String imagePath) {
-		CatchoomImageUtil.processPicture(imagePath);
 		// Compress JPEG PICTURE_COMPRESSION_QUALITY % quality and PICTURE_MIN_SIZE min size		
 		try {
 			// Just query the bitmap without allocating its space in memory
