@@ -13,7 +13,6 @@ import java.util.List;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpVersion;
 import org.apache.http.NameValuePair;
-import org.apache.http.ParseException;
 import org.apache.http.StatusLine;
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
@@ -112,13 +111,13 @@ public class Catchoom {
 	 * @author Catchoom
 	 *
 	 */
-	private class Connect extends AsyncTask<String, Void, HttpResponse> {
+	private class Connect extends AsyncTask<String, Void, Object> {
 
 		private static final String URL = Config.BASE_URL + "timestamp";
 		private static final String REQUEST_TOKEN_PARAM = "token";
 		
 		@Override
-		protected HttpResponse doInBackground(String... params) {
+		protected Object doInBackground(String... params) {
 			
 			if (null != params && params.length > 0) {
 				
@@ -131,15 +130,30 @@ public class Catchoom {
 				HttpPost request = new HttpPost(URL);
 				try {
 					request.setEntity(new UrlEncodedFormEntity(nameValuePairs));
-					return mHttpClient.execute(request);
+					HttpResponse response = mHttpClient.execute(request);
+					
+					if (null != response) {
+						StatusLine status = response.getStatusLine();
+						String stringResponse = EntityUtils.toString(response.getEntity());
+						JSONObject json = new JSONObject(stringResponse);
+
+						if (200 == status.getStatusCode()) {
+							long timestamp = json.getLong("timestamp");
+							return Long.valueOf(timestamp);
+						} else {
+							String error = json.getString("message");
+							return new CatchoomErrorResponseItem(status.getStatusCode(), status.getReasonPhrase(), error);
+						}
+					}
 				} catch (UnsupportedEncodingException e1) {
 					e1.printStackTrace();
 				} catch (ClientProtocolException e) {
 					e.printStackTrace();
 				} catch (IOException e) {
 					e.printStackTrace();
+				} catch (JSONException e) {
+					e.printStackTrace();
 				}
-				
 			} else {
 				Log.e(TAG, "Error sending the parameters to the request");
 			}
@@ -148,34 +162,18 @@ public class Catchoom {
 		}
 		
 		@Override
-		protected void onPostExecute(HttpResponse response) {
+		protected void onPostExecute(Object response) {
 			super.onPostExecute(response);
-						
-			if (null != response) {
-				try {
-					StatusLine status = response.getStatusLine();
-					String stringResponse = EntityUtils.toString(response.getEntity());
-					JSONObject json = new JSONObject(stringResponse);
-
-					if (200 == status.getStatusCode()) {
-						int timestamp = json.getInt("timestamp");
-						mCatchoomResponseHandler.requestCompletedResponse(Catchoom.Request.CONNECT_REQUEST, timestamp);
-					} else {
-						String error = json.getString("message");
-						mCatchoomResponseHandler.requestFailedResponse(new CatchoomErrorResponseItem(status.getStatusCode(), status.getReasonPhrase(), error));
-					}
-				} catch (ParseException e) {
-					e.printStackTrace();
-				} catch (IOException e) {
-					e.printStackTrace();
-				} catch (JSONException e) {
-					e.printStackTrace();
-				}
-			} else {
+			
+			if (null == response) {
 				mCatchoomResponseHandler.requestFailedResponse(null);
+			} else if (response instanceof CatchoomErrorResponseItem) {
+				mCatchoomResponseHandler.requestFailedResponse((CatchoomErrorResponseItem) response);
+			} else {
+				long timestamp = (Long) response;
+				mCatchoomResponseHandler.requestCompletedResponse(Catchoom.Request.CONNECT_REQUEST, timestamp);
 			}
 		}
-		
 	}
 	
 	/**
@@ -183,14 +181,14 @@ public class Catchoom {
 	 * @author Catchoom
 	 *
 	 */
-	private class Search extends AsyncTask<Object, Void, HttpResponse> {
+	private class Search extends AsyncTask<Object, Void, Object> {
 
 		private static final String URL = Config.BASE_URL + "search";
 		private static final String REQUEST_TOKEN_PARAM = "token";
 		private static final String REQUEST_IMAGE_PARAM = "image";
 		
 		@Override
-		protected HttpResponse doInBackground(Object... params) {
+		protected Object doInBackground(Object... params) {
 			
 			// Upload the photo and wait for the response
 			if (null != params && params.length > 1) {
@@ -211,10 +209,39 @@ public class Catchoom {
 	            request.setEntity(multipartEntity);
 				
 	            try {
-	            	return mHttpClient.execute(request);
+	            	HttpResponse response = mHttpClient.execute(request);
+	            	
+	    			if (null != response) {
+						StatusLine status = response.getStatusLine();
+						String stringResponse = EntityUtils.toString(response.getEntity());
+						
+						if (200 == status.getStatusCode()) {
+							JSONArray results = new JSONArray(stringResponse);
+							ArrayList<CatchoomSearchResponseItem> items = new ArrayList<CatchoomSearchResponseItem>();
+							
+							for (int i = 0; i < results.length(); i++) {
+								try {
+									CatchoomSearchResponseItem parsedItem = CatchoomSearchResponseItem.parseFromJSON(results.getJSONObject(i));
+									if (null != parsedItem) {
+										items.add(parsedItem);
+									}
+								} catch (JSONException e) {
+									e.printStackTrace();
+								}
+							}
+							
+							return items;
+						} else {
+							JSONObject json = new JSONObject(stringResponse);
+							String error = json.getString("message");
+							return new CatchoomErrorResponseItem(status.getStatusCode(), status.getReasonPhrase(), error);
+						}
+					}
 				} catch (ClientProtocolException e) {
 					e.printStackTrace();
 				} catch (IOException e) {
+					e.printStackTrace();
+				} catch (JSONException e) {
 					e.printStackTrace();
 				}
 			} else {
@@ -226,46 +253,16 @@ public class Catchoom {
 		}
 		
 		@Override
-		protected void onPostExecute(HttpResponse response) {
+		protected void onPostExecute(Object response) {
 			super.onPostExecute(response);
-						
+			
 			if (null == response) {
 				mCatchoomResponseHandler.requestFailedResponse(null);
+			} else if (response instanceof CatchoomErrorResponseItem) {
+				mCatchoomResponseHandler.requestFailedResponse((CatchoomErrorResponseItem) response);
 			} else {
-				StatusLine status = response.getStatusLine();
-				
-				try {
-					String stringResponse = EntityUtils.toString(response.getEntity());
-					
-					if (200 == status.getStatusCode()) {
-						JSONArray results = new JSONArray(stringResponse);
-						ArrayList<CatchoomSearchResponseItem> items = new ArrayList<CatchoomSearchResponseItem>();
-						
-						for (int i = 0; i < results.length(); i++) {
-							try {
-								CatchoomSearchResponseItem parsedItem = CatchoomSearchResponseItem.parseFromJSON(results.getJSONObject(i));
-								if (null != parsedItem) {
-									items.add(parsedItem);
-								}
-							} catch (JSONException e) {
-								e.printStackTrace();
-							}
-						}
-						
-						mCatchoomResponseHandler.requestCompletedResponse(Catchoom.Request.SEARCH_REQUEST, items);
-					} else {
-						JSONObject json = new JSONObject(stringResponse);
-						String error = json.getString("message");
-						mCatchoomResponseHandler.requestFailedResponse(new CatchoomErrorResponseItem(status.getStatusCode(), status.getReasonPhrase(), error));
-					}
-					
-				} catch (ParseException e1) {
-					e1.printStackTrace();
-				} catch (IOException e1) {
-					e1.printStackTrace();
-				} catch (JSONException e1) {
-					e1.printStackTrace();
-				}
+				ArrayList<CatchoomSearchResponseItem> items = (ArrayList<CatchoomSearchResponseItem>) response;
+				mCatchoomResponseHandler.requestCompletedResponse(Catchoom.Request.SEARCH_REQUEST, items);
 			}
 		}
 	}
