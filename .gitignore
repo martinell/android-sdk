@@ -4,3 +4,8 @@
 *.jar
 *.war
 *.ear
+
+bin
+gen
+
+local.properties

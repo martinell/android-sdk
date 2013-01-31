@@ -1,9 +1,10 @@
-// © Catchoom Technologies S.L.
+// (c) Catchoom Technologies S.L.
 // Licensed under the MIT license.
 // https://raw.github.com/catchoom/android-sdk/master/LICENSE
 // All warranties and liabilities are disclaimed.
 package com.catchoom.api;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
@@ -19,7 +20,7 @@ import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.mime.HttpMultipartMode;
 import org.apache.http.entity.mime.MultipartEntity;
-import org.apache.http.entity.mime.content.FileBody;
+import org.apache.http.entity.mime.content.ByteArrayBody;
 import org.apache.http.entity.mime.content.StringBody;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.message.BasicNameValuePair;
@@ -31,8 +32,10 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import android.graphics.Bitmap;
 import android.os.AsyncTask;
 import android.util.Log;
+
 
 /**
  * Catchoom allows you to send requests to the Catchoom Recognition Server.
@@ -98,11 +101,28 @@ public class Catchoom {
 	public void search(String token, File image) {
 		if (null != mCatchoomResponseHandler) {
 			Search searchImpl = new Search();
-			File processedImage = CatchoomImageUtil.processPicture(image.getPath());
+			ByteArrayOutputStream processedImage = CatchoomImageUtil.processPicture(image.getPath());
 			searchImpl.execute(token, processedImage);
 		}
 	}
-	
+
+	/**
+	 * Searches the image specified in a collection. This request is
+	 * asynchronous and will trigger a callback to a {@link CatchoomResponseHandler}
+	 * once it completes. If it succeeds, the server will respond with an {@link ArrayList<CatchoomSearchResponseItem>}.
+	 * This list can either contain several {@link CatchoomSearchResponseItem} or be
+	 * empty depending on the number of coincidences found.
+	 * If the request fails, a {@link CatchoomErrorResponseItem} will be sent.
+	 * @param token
+	 * @param image
+	 */
+	public void search(String token, Bitmap image) {
+		if (null != mCatchoomResponseHandler) {
+			Search searchImpl = new Search();
+			ByteArrayOutputStream processedImage = CatchoomImageUtil.processPicture(image);
+			searchImpl.execute(token, processedImage);
+		}
+	}
 	
 	// Private inner implementation of the API
 	
@@ -194,13 +214,13 @@ public class Catchoom {
 			if (null != params && params.length > 1) {
 				// Get params
 				String collectionToken = (String) params[0];
-				File picture = (File) params[1];
+				ByteArrayOutputStream picture = (ByteArrayOutputStream) params[1];
 				
 	            MultipartEntity multipartEntity = new MultipartEntity(HttpMultipartMode.BROWSER_COMPATIBLE);  
 	            
 	            try {
 		            multipartEntity.addPart(REQUEST_TOKEN_PARAM, new StringBody(collectionToken));
-		            multipartEntity.addPart(REQUEST_IMAGE_PARAM, new FileBody(picture));
+		            multipartEntity.addPart(REQUEST_IMAGE_PARAM, new ByteArrayBody(picture.toByteArray(), "query.img"));
 	            } catch (UnsupportedEncodingException e) {
 	            	e.printStackTrace();
 	            }
