@@ -1,15 +1,12 @@
-// © Catchoom Technologies S.L.
+// ï¿½ Catchoom Technologies S.L.
 // Licensed under the MIT license.
 // https://raw.github.com/catchoom/android-sdk/master/LICENSE
 // All warranties and liabilities are disclaimed.
 package com.catchoom.api;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
-
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.CompressFormat;
 import android.graphics.BitmapFactory;
@@ -22,35 +19,43 @@ class CatchoomImageUtil {
 		private static final int PICTURE_COMPRESSION_QUALITY = 75;
 		private static final int PICTURE_MIN_SIZE = 300;
 	}
-	
+
 	/**
 	 * Processes the image to optimize it for server consumption.
 	 * @param imagePath Path to the original file to use.
 	 * @return The image {@link File} processed.
 	 */
-	static File processPicture(String imagePath) {
+	static ByteArrayOutputStream processPicture(String imagePath) {
+		// Just query the bitmap without allocating its space in memory
+		Options options = new Options();
+		options.inJustDecodeBounds = true;
+		Bitmap picture = BitmapFactory.decodeFile(imagePath, options);
+
+		int sampleSize = resolveSampleSize(options.outWidth, options.outHeight);
+
+		options.inJustDecodeBounds = false;
+		options.inSampleSize = sampleSize;
+		picture = BitmapFactory.decodeFile(imagePath, options);
+
+		return processPicture(picture);
+	}
+
+	/**
+	 * Processes the image to optimize it for server consumption.
+	 * @param imagePath Path to the original file to use.
+	 * @return The image {@link File} processed.
+	 */
+	static ByteArrayOutputStream processPicture(Bitmap image) {
 		// Compress JPEG PICTURE_COMPRESSION_QUALITY % quality and PICTURE_MIN_SIZE min size		
 		try {
-			// Just query the bitmap without allocating its space in memory
-			Options options = new Options();
-			options.inJustDecodeBounds = true;
-			Bitmap picture = BitmapFactory.decodeFile(imagePath, options);
-			
-			int sampleSize = resolveSampleSize(options.outWidth, options.outHeight);
-			
-			options.inJustDecodeBounds = false;
-			options.inSampleSize = sampleSize;
-			picture = BitmapFactory.decodeFile(imagePath, options);
-			
-			OutputStream outputStream = new FileOutputStream(imagePath);
-			Pair<Integer, Integer> desiredSize = resolveDesiredSize(options.outWidth, options.outHeight);
-			Bitmap resized = Bitmap.createScaledBitmap(picture, desiredSize.first, desiredSize.second, false);
+			ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+
+			Pair<Integer, Integer> desiredSize = resolveDesiredSize(image.getWidth(), image.getHeight());
+			Bitmap resized = Bitmap.createScaledBitmap(image, desiredSize.first, desiredSize.second, false);
 			resized.compress(CompressFormat.JPEG, Config.PICTURE_COMPRESSION_QUALITY, outputStream);
 			outputStream.close();
-			
-			return new File(imagePath);
-		} catch (FileNotFoundException e) {
-			e.printStackTrace();
+
+			return outputStream;
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
