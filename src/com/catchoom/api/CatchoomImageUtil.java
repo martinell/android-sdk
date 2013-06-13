@@ -11,7 +11,6 @@ import android.graphics.Bitmap;
 import android.graphics.Bitmap.CompressFormat;
 import android.graphics.BitmapFactory;
 import android.graphics.BitmapFactory.Options;
-import android.util.Log;
 import android.util.Pair;
 
 class CatchoomImageUtil {
@@ -28,7 +27,6 @@ class CatchoomImageUtil {
 	 */
 	static ByteArrayOutputStream processPicture(String imagePath) {
 		// Just query the bitmap without allocating its space in memory
-		Log.d("PROFILE_SDK","start process");
 		Options options = new Options();
 		options.inJustDecodeBounds = true;
 		Bitmap picture = BitmapFactory.decodeFile(imagePath, options);
@@ -39,9 +37,7 @@ class CatchoomImageUtil {
 		options.inSampleSize = sampleSize;
 		picture = BitmapFactory.decodeFile(imagePath, options);
 
-		ByteArrayOutputStream result =  processPicture(picture);
-		Log.d("PROFILE_SDK","end process");
-		return result;
+		return processPicture(picture);
 	}
 
 	/**
