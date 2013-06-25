@@ -12,21 +12,24 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.http.HttpResponse;
-import org.apache.http.HttpVersion;
 import org.apache.http.NameValuePair;
 import org.apache.http.StatusLine;
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.conn.ClientConnectionManager;
+import org.apache.http.conn.scheme.PlainSocketFactory;
+import org.apache.http.conn.scheme.Scheme;
+import org.apache.http.conn.scheme.SchemeRegistry;
+import org.apache.http.conn.ssl.SSLSocketFactory;
 import org.apache.http.entity.mime.HttpMultipartMode;
 import org.apache.http.entity.mime.MultipartEntity;
 import org.apache.http.entity.mime.content.ByteArrayBody;
 import org.apache.http.entity.mime.content.StringBody;
 import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.impl.conn.tsccm.ThreadSafeClientConnManager;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.params.BasicHttpParams;
-import org.apache.http.params.CoreProtocolPNames;
-import org.apache.http.params.HttpParams;
 import org.apache.http.util.EntityUtils;
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -60,9 +63,13 @@ public class Catchoom {
 	private CatchoomResponseHandler mCatchoomResponseHandler = null;
 	
 	public Catchoom() {
-		HttpParams httpParams = new BasicHttpParams();
-        httpParams.setParameter(CoreProtocolPNames.PROTOCOL_VERSION, HttpVersion.HTTP_1_1);
-		mHttpClient = new DefaultHttpClient(httpParams);
+    	BasicHttpParams params = new BasicHttpParams();
+    	SchemeRegistry schemeRegistry = new SchemeRegistry();
+    	schemeRegistry.register(new Scheme("http", PlainSocketFactory.getSocketFactory(), 80));
+    	final SSLSocketFactory sslSocketFactory = SSLSocketFactory.getSocketFactory();
+    	schemeRegistry.register(new Scheme("https", sslSocketFactory, 443));
+    	ClientConnectionManager cm = new ThreadSafeClientConnManager(params, schemeRegistry);
+    	mHttpClient = new DefaultHttpClient(cm, params);
 	}
 	
 	/**
